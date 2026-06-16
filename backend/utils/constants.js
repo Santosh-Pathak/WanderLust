@@ -13,6 +13,7 @@ export const HTTP_STATUS = {
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,
 };
 export const RESPONSE_MESSAGES = {
@@ -43,6 +44,7 @@ export const REDIS_KEYS = {
   ALL_POSTS: 'all-posts',
   FEATURED_POSTS: 'featured-posts',
   LATEST_POSTS: 'latest-posts',
+  TRENDING_POSTS: 'trending-posts',
 };
 
 export const REDIS_PREFIX = 'post-cache';

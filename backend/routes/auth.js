@@ -10,7 +10,9 @@ import {
   signUpWithGithub,
   signInWithGithub,
   signOutUser,
+  refreshTokenHandler,
 } from '../controllers/auth-controller.js';
+import { authenticate } from '../middleware/auth.js';
 
 //GOOGLE STRATEGY
 router.get('/google', openGoogleAuthWindow);
@@ -27,6 +29,7 @@ router.post('/email-password/signup', signUpWithEmail);
 router.post('/email-password/signin', signInWithEmail);
 
 //SIGN OUT
-router.post('/signout', signOutUser);
+router.post('/refresh', refreshTokenHandler);
+router.post('/signout', authenticate, signOutUser);
 
 export default router;

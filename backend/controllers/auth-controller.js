@@ -4,8 +4,28 @@ import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import { HTTP_STATUS, RESPONSE_MESSAGES } from '../utils/constants.js';
 import { accessCookieOptions, refreshCookieOptions } from '../utils/cookie_options.js';
+import {
+  loginOauthUser,
+  loginWithEmail,
+  refreshAccessToken,
+  registerOauthUser,
+  registerWithEmail,
+  revokeRefreshToken,
+} from '../services/auth-service.js';
 const { hash, compareSync } = bcrypt;
 const { sign } = jwt;
+
+const sendAuthResponse = (res, payload, message) => {
+  res.cookie('access_token', payload.accessToken, accessCookieOptions);
+  res.cookie('refresh_token', payload.refreshToken, refreshCookieOptions);
+  res.status(HTTP_STATUS.OK).json({
+    success: true,
+    message,
+    user: payload.user,
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken,
+  });
+};
 
 //REGULAR EMAIL PASSWORD STRATEGY
 //1.Sign Up
@@ -15,32 +35,10 @@ export const signUpWithEmail = async (req, res, next) => {
     if (!name || !email || !password) {
       throw new Error('All fields are required.');
     }
-    const isExisitsUser = await User.findOne({ email });
-    if (isExisitsUser) {
-      throw new Error('User already exists.');
-    }
-    const hashedPassword = await hash(password, 10);
-    const newUser = await User.create({ name, email, password: hashedPassword });
-    const accessToken = sign({ name, _id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
-    });
-    const refreshToken = sign({ name, _id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN,
-    });
-    res.cookie('access_token', accessToken, accessCookieOptions);
-    res.cookie('refresh_token', refreshToken, refreshCookieOptions);
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      message: RESPONSE_MESSAGES.USERS.SIGNED_UP,
-      user: {
-        name: name,
-        id: newUser._id,
-      },
-      accessToken,
-      refreshToken,
-    });
+    const payload = await registerWithEmail({ name, email, password });
+    sendAuthResponse(res, payload, RESPONSE_MESSAGES.USERS.SIGNED_UP);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });
@@ -54,44 +52,10 @@ export const signInWithEmail = async (req, res, next) => {
     if (!email || !password) {
       throw new Error('Both email and password are required');
     }
-    const isUserExists = await User.findOne({ email });
-    if (!isUserExists) {
-      throw new Error('Email does not exist');
-    }
-    let accessToken;
-    let refreshToken;
-    if (isUserExists && compareSync(password, isUserExists.password)) {
-      accessToken = sign(
-        { name: isUserExists.name, _id: isUserExists._id },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
-        }
-      );
-      refreshToken = sign(
-        { name: isUserExists.name, _id: isUserExists._id },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN,
-        }
-      );
-      res.cookie('access_token', accessToken, accessCookieOptions);
-      res.cookie('refresh_token', refreshToken, refreshCookieOptions);
-    } else {
-      throw new Error('Invalid password');
-    }
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      user: {
-        name: isUserExists.name,
-        _id: isUserExists._id,
-      },
-      accessToken,
-      refreshToken,
-      message: RESPONSE_MESSAGES.USERS.SIGNED_IN,
-    });
+    const payload = await loginWithEmail({ email, password });
+    sendAuthResponse(res, payload, RESPONSE_MESSAGES.USERS.SIGNED_IN);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });
@@ -141,35 +105,10 @@ export const signUpWithGoogle = async (req, res, next) => {
       headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
     });
     const { email, name } = userInfo.data;
-    const isUserAlreadyExists = await User.findOne({ email });
-    if (isUserAlreadyExists) {
-      throw new Error(RESPONSE_MESSAGES.USERS.EMAIL_ALREADY_IN_USE);
-    }
-    const newUser = await User.create({
-      name,
-      email,
-    });
-    const payload = { name, _id: newUser._id };
-    const accessToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
-    });
-    const refreshToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN,
-    });
-    res.cookie('access_token', accessToken, accessCookieOptions);
-    res.cookie('refresh_token', refreshToken, refreshCookieOptions);
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      message: RESPONSE_MESSAGES.USERS.SIGNED_UP,
-      user: {
-        name: name,
-        id: newUser._id,
-      },
-      accessToken,
-      refreshToken,
-    });
+    const payload = await registerOauthUser({ name, email });
+    sendAuthResponse(res, payload, RESPONSE_MESSAGES.USERS.SIGNED_UP);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });
@@ -204,32 +143,10 @@ export const signInWithGoogle = async (req, res, next) => {
       headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
     });
     const { email, name } = userInfo.data;
-    const isUserExists = await User.findOne({ email });
-    if (!isUserExists) {
-      throw new Error(RESPONSE_MESSAGES.USERS.USER_NOT_EXISTS);
-    }
-    const payload = { name, _id: isUserExists._id };
-    const accessToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
-    });
-    const refreshToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN,
-    });
-    res.cookie('access_token', accessToken, accessCookieOptions);
-    res.cookie('refresh_token', refreshToken, refreshCookieOptions);
-
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      message: RESPONSE_MESSAGES.USERS.SIGNED_IN,
-      user: {
-        name: name,
-        id: isUserExists._id,
-      },
-      accessToken,
-      refreshToken,
-    });
+    const payload = await loginOauthUser({ email });
+    sendAuthResponse(res, payload, RESPONSE_MESSAGES.USERS.SIGNED_IN);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });
@@ -280,36 +197,10 @@ export const signUpWithGithub = async (req, res, next) => {
       throw new Error("Your github account's email is not publically available.");
     }
     const { name, email } = userInfo.data;
-    const isUserAlreadyExists = await User.findOne({ email });
-    if (isUserAlreadyExists) {
-      throw new Error(RESPONSE_MESSAGES.USERS.EMAIL_ALREADY_IN_USE);
-    }
-    const newUser = await User.create({
-      name,
-      email,
-    });
-    const payload = { name, _id: newUser._id };
-    const accessToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
-    });
-    const refreshToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN,
-    });
-    res.cookie('access_token', accessToken, accessCookieOptions);
-    res.cookie('refresh_token', refreshToken, refreshCookieOptions);
-
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      message: RESPONSE_MESSAGES.USERS.SIGNED_UP,
-      user: {
-        name,
-        id: newUser._id,
-      },
-      accessToken,
-      refreshToken,
-    });
+    const payload = await registerOauthUser({ name, email });
+    sendAuthResponse(res, payload, RESPONSE_MESSAGES.USERS.SIGNED_UP);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });
@@ -342,32 +233,10 @@ export const signInWithGithub = async (req, res, next) => {
       headers: { Authorization: `Bearer ${tokenResponse.data.access_token}` },
     });
     const { name, email } = userInfo.data;
-    const isUserExists = await User.findOne({ email });
-    if (!isUserExists) {
-      throw new Error(RESPONSE_MESSAGES.USERS.USER_NOT_EXISTS);
-    }
-    const payload = { name, _id: isUserExists._id };
-    const accessToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN,
-    });
-    const refreshToken = sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN,
-    });
-    res.cookie('access_token', accessToken, accessCookieOptions);
-    res.cookie('refresh_token', refreshToken, refreshCookieOptions);
-
-    res.status(HTTP_STATUS.OK).json({
-      success: true,
-      message: RESPONSE_MESSAGES.USERS.SIGNED_IN,
-      user: {
-        name,
-        id: isUserExists._id,
-      },
-      accessToken,
-      refreshToken,
-    });
+    const payload = await loginOauthUser({ email });
+    sendAuthResponse(res, payload, RESPONSE_MESSAGES.USERS.SIGNED_IN);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });
@@ -377,12 +246,25 @@ export const signInWithGithub = async (req, res, next) => {
 //Sign Out
 export const signOutUser = async (req, res, next) => {
   try {
+    await revokeRefreshToken(req.user?._id);
     res.cookie('access_token', '', { maxAge: 1 });
     res.cookie('refresh_token', '', { maxAge: 1 });
 
     res.status(200).json({ success: true, message: RESPONSE_MESSAGES.USERS.SIGNED_OUT });
   } catch (error) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const refreshTokenHandler = async (req, res) => {
+  try {
+    const payload = await refreshAccessToken(req.cookies?.refresh_token || req.body.refreshToken);
+    sendAuthResponse(res, payload, 'Token refreshed');
+  } catch (error) {
+    res.status(error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message,
     });

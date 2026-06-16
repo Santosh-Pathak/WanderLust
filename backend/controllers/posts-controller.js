@@ -1,10 +1,19 @@
-import Post from '../models/post.js';
 import {
-  deleteDataFromCache,
-  retrieveDataFromCache,
-  storeDataInCache,
-} from '../utils/cache-posts.js';
-import { HTTP_STATUS, REDIS_KEYS, RESPONSE_MESSAGES, validCategories } from '../utils/constants.js';
+  addCommentService,
+  addReactionService,
+  addReplyService,
+  createPostService,
+  deletePostService,
+  getAllPostsService,
+  getFeaturedPostsService,
+  getLatestPostsService,
+  getPostByCategoryService,
+  getPostByIdService,
+  getRelatedPostsService,
+  getTrendingPostsService,
+  updatePostService,
+} from '../services/post-service.js';
+import { HTTP_STATUS, RESPONSE_MESSAGES } from '../utils/constants.js';
 export const createPostHandler = async (req, res) => {
   try {
     const {
@@ -38,21 +47,17 @@ export const createPostHandler = async (req, res) => {
         .json({ message: RESPONSE_MESSAGES.POSTS.MAX_CATEGORIES });
     }
 
-    const post = new Post({
+    const savedPost = await createPostService({
       title,
       authorName,
       imageLink,
       description,
       categories,
       isFeaturedPost,
+      tags: req.body.tags,
+      status: req.body.status,
+      scheduledFor: req.body.scheduledFor,
     });
-
-    const [savedPost] = await Promise.all([
-      post.save(), // Save the post
-      deleteDataFromCache(REDIS_KEYS.ALL_POSTS), // Invalidate cache for all posts
-      deleteDataFromCache(REDIS_KEYS.FEATURED_POSTS), // Invalidate cache for featured posts
-      deleteDataFromCache(REDIS_KEYS.LATEST_POSTS), // Invalidate cache for latest posts
-    ]);
 
     res.status(HTTP_STATUS.OK).json(savedPost);
   } catch (err) {
@@ -62,9 +67,11 @@ export const createPostHandler = async (req, res) => {
 
 export const getAllPostsHandler = async (req, res) => {
   try {
-    const posts = await Post.find();
-    await storeDataInCache(REDIS_KEYS.ALL_POSTS, posts);
-    return res.status(HTTP_STATUS.OK).json(posts);
+    const result = await getAllPostsService(req.query);
+    if (Object.keys(req.query).length > 0) {
+      return res.status(HTTP_STATUS.OK).json({ success: true, data: result.items, meta: result });
+    }
+    return res.status(HTTP_STATUS.OK).json(result.items);
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
   }
@@ -72,8 +79,7 @@ export const getAllPostsHandler = async (req, res) => {
 
 export const getFeaturedPostsHandler = async (req, res) => {
   try {
-    const featuredPosts = await Post.find({ isFeaturedPost: true });
-    await storeDataInCache(REDIS_KEYS.FEATURED_POSTS, featuredPosts);
+    const featuredPosts = await getFeaturedPostsService();
     res.status(HTTP_STATUS.OK).json(featuredPosts);
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
@@ -83,14 +89,7 @@ export const getFeaturedPostsHandler = async (req, res) => {
 export const getPostByCategoryHandler = async (req, res) => {
   const category = req.params.category;
   try {
-    // Validation - check if category is valid
-    if (!validCategories.includes(category)) {
-      return res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ message: RESPONSE_MESSAGES.POSTS.INVALID_CATEGORY });
-    }
-
-    const categoryPosts = await Post.find({ categories: category });
+    const categoryPosts = await getPostByCategoryService(category);
     res.status(HTTP_STATUS.OK).json(categoryPosts);
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
@@ -99,8 +98,7 @@ export const getPostByCategoryHandler = async (req, res) => {
 
 export const getLatestPostsHandler = async (req, res) => {
   try {
-    const latestPosts = await Post.find().sort({ timeOfPost: -1 });
-    await storeDataInCache(REDIS_KEYS.LATEST_POSTS, latestPosts);
+    const latestPosts = await getLatestPostsService();
     res.status(HTTP_STATUS.OK).json(latestPosts);
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
@@ -109,13 +107,7 @@ export const getLatestPostsHandler = async (req, res) => {
 
 export const getPostByIdHandler = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
-
-    // Validation - check if post exists
-    if (!post) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: RESPONSE_MESSAGES.POSTS.NOT_FOUND });
-    }
-
+    const post = await getPostByIdService(req.params.id, { countView: true });
     res.status(HTTP_STATUS.OK).json(post);
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
@@ -124,15 +116,7 @@ export const getPostByIdHandler = async (req, res) => {
 
 export const updatePostHandler = async (req, res) => {
   try {
-    const updatedPost = await Post.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-
-    // Validation - check if post exists
-    if (!updatedPost) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: RESPONSE_MESSAGES.POSTS.NOT_FOUND });
-    }
-
+    const updatedPost = await updatePostService(req.params.id, req.body);
     res.status(HTTP_STATUS.OK).json(updatedPost);
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
@@ -141,15 +125,49 @@ export const updatePostHandler = async (req, res) => {
 
 export const deletePostByIdHandler = async (req, res) => {
   try {
-    const post = await Post.findByIdAndDelete(req.params.id);
-
-    // Validation - check if post exists
-    if (!post) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: RESPONSE_MESSAGES.POSTS.NOT_FOUND });
-    }
-
+    await deletePostService(req.params.id);
     res.status(HTTP_STATUS.OK).json({ message: RESPONSE_MESSAGES.POSTS.DELETED });
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
+  }
+};
+
+export const getTrendingPostsHandler = async (req, res) => {
+  try {
+    res.status(HTTP_STATUS.OK).json(await getTrendingPostsService());
+  } catch (err) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
+  }
+};
+
+export const getRelatedPostsHandler = async (req, res) => {
+  try {
+    res.status(HTTP_STATUS.OK).json(await getRelatedPostsService(req.params.id));
+  } catch (err) {
+    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
+  }
+};
+
+export const addReactionHandler = async (req, res) => {
+  try {
+    res.status(HTTP_STATUS.OK).json(await addReactionService(req.params.id, req.body.reaction));
+  } catch (err) {
+    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
+  }
+};
+
+export const addCommentHandler = async (req, res) => {
+  try {
+    res.status(HTTP_STATUS.OK).json(await addCommentService(req.params.id, req.body));
+  } catch (err) {
+    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
+  }
+};
+
+export const addReplyHandler = async (req, res) => {
+  try {
+    res.status(HTTP_STATUS.OK).json(await addReplyService(req.params.id, req.params.commentId, req.body));
+  } catch (err) {
+    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
   }
 };

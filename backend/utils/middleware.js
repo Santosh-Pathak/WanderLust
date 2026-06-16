@@ -6,6 +6,7 @@ export const cacheHandler = (key) => async (req, res, next) => {
     const cachedData = await retrieveDataFromCache(key);
     if (cachedData) {
       console.log(`Getting cached data for key: ${key}`);
+      if (Object.keys(req.query || {}).length > 0) return next();
       return res.status(HTTP_STATUS.OK).json(cachedData);
     }
     next(); // Proceed to the route handler if data is not cached
