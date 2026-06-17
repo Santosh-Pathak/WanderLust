@@ -1,109 +1,85 @@
 import { Link, useNavigate } from 'react-router-dom';
-import AddGoogleIcon from '@/assets/svg/google-color-icon.svg';
-import AddGithubIcon from '@/assets/svg/github-icon.svg';
 import { useForm } from 'react-hook-form';
 import type { FieldValues } from 'react-hook-form';
 import { TSignInSchema, signInSchema } from '@/lib/types';
-import 'react-toastify/dist/ReactToastify.css';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/contexts/auth-context';
+import { useState } from 'react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
-function signin() {
+export default function SignIn() {
   const navigate = useNavigate();
+  const { login } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    reset,
   } = useForm<TSignInSchema>({ resolver: zodResolver(signInSchema) });
 
   const onSubmit = async (data: FieldValues) => {
-    if (data.email === 'abc@gamil.com') {
-      toast.error('Submitting form is failed');
-      return;
+    try {
+      await login(data.email, data.password);
+      toast.success('Signed in successfully');
+      navigate('/');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Sign in failed');
     }
-
-    // TODO: Server-side validation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    reset();
-    navigate('/');
   };
 
   return (
-    <div className="m-4 flex-grow cursor-default bg-white py-4">
-      <div className="mb-4 flex justify-center">
-        <div className="flex w-full items-center justify-center">
-          <h2 className="w-3/4 text-center text-lg font-bold text-black sm:text-xl">
-            Sign in to WanderLust
-          </h2>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-dark dark:to-dark">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl dark:bg-dark-card">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold">Welcome Back</h1>
+          <p className="mt-1 text-sm text-slate-500">Sign in to WanderLust</p>
         </div>
-      </div>
-      <div className="m-2 mt-8 flex flex-col items-center justify-center gap-2">
-        <form onSubmit={handleSubmit(onSubmit)} className="w-full md:w-3/4 lg:w-2/5">
-          <div className="mb-2">
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
             <input
               {...register('email')}
               type="email"
               placeholder="Email"
-              className="w-full rounded-lg bg-zinc-100 p-3 font-normal placeholder:text-sm placeholder:text-neutral-500"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900"
             />
-            {errors.email && (
-              <p className="p-3 text-xs text-red-500">{`${errors.email.message}`}</p>
-            )}
+            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
           </div>
 
-          <div className="mb-4">
+          <div className="relative">
             <input
               {...register('password')}
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder="Password"
-              className="w-full rounded-lg bg-zinc-100 p-3 font-normal placeholder:text-sm placeholder:text-neutral-500"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 pr-10 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900"
             />
-            {errors.password && (
-              <p className="p-3 text-xs text-red-500">{`${errors.password.message}`}</p>
-            )}
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+            {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
           </div>
 
           <button
             disabled={isSubmitting}
             type="submit"
-            className="flex w-full items-center justify-center rounded-lg bg-neutral-800 p-3 text-base font-medium text-light disabled:bg-neutral-600 sm:text-lg sm:font-semibold"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 p-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            Log In
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            Sign In
           </button>
         </form>
-        <div className="mt-2 flex w-5/6 flex-col items-center justify-center gap-4 text-center text-sm font-normal sm:text-base">
-          <p>
-            Don't have an account?
-            <Link to={'/signup'} className="text-blue-600 hover:text-blue-500">
-              {' '}
-              Sign up now
-            </Link>
+
+        <div className="mt-6 text-center text-sm">
+          <p className="text-slate-500">
+            Don't have an account?{' '}
+            <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">Sign up</Link>
           </p>
-
-          <span>OR</span>
         </div>
-
-        <Link
-          to={'/google-auth'}
-          className="flex w-full items-center justify-center space-x-2 rounded-lg border-2 border-b-4  border-gray-300 p-3 text-center hover:bg-gray-50 md:w-3/4 lg:w-2/5"
-        >
-          <img className="h-4 w-6 pl-1 sm:h-5 sm:w-10" src={AddGoogleIcon} />
-          <span className="text-sm sm:text-base">Continue with Google</span>
-        </Link>
-
-        <Link
-          to={'/github-auth'}
-          className="flex w-full items-center justify-center space-x-2 rounded-lg border-2 border-b-4 border-gray-300 p-3 text-center hover:bg-gray-50 md:w-3/4 lg:w-2/5"
-        >
-          <img className="h-4 w-6 sm:h-5 sm:w-10" src={AddGithubIcon} />
-          <span className="text-sm sm:text-base">Continue with Github</span>
-        </Link>
       </div>
     </div>
   );
 }
 
-export default signin;
+export default SignIn;

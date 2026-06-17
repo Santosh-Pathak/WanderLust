@@ -12,162 +12,87 @@ import {
   getRelatedPostsService,
   getTrendingPostsService,
   updatePostService,
+  getPostsByTagService,
 } from '../services/post-service.js';
-import { HTTP_STATUS, RESPONSE_MESSAGES } from '../utils/constants.js';
-export const createPostHandler = async (req, res) => {
-  try {
-    const {
-      title,
-      authorName,
-      imageLink,
-      categories,
-      description,
-      isFeaturedPost = false,
-    } = req.body;
+import { ApiResponse } from '../utils/api-response.js';
+import { asyncHandler } from '../middleware/error-handler.js';
 
-    // Validation - check if all fields are filled
-    if (!title || !authorName || !imageLink || !description || !categories) {
-      return res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ message: RESPONSE_MESSAGES.COMMON.REQUIRED_FIELDS });
-    }
+export const createPostHandler = asyncHandler(async (req, res) => {
+  const savedPost = await createPostService({
+    ...req.body,
+    author: req.user?._id,
+    authorName: req.body.authorName || req.user?.name,
+  });
+  ApiResponse.created(res, { data: savedPost, message: 'Post created' });
+});
 
-    // Validation - check if imageLink is a valid URL
-    const imageLinkRegex = /\.(jpg|jpeg|png|webp)$/i;
-    if (!imageLinkRegex.test(imageLink)) {
-      return res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ message: RESPONSE_MESSAGES.POSTS.INVALID_IMAGE_URL });
-    }
+export const getAllPostsHandler = asyncHandler(async (req, res) => {
+  const result = await getAllPostsService(req.query);
+  ApiResponse.paginated(res, {
+    items: result.items,
+    total: result.total,
+    page: result.page,
+    limit: result.limit,
+    totalPages: result.totalPages,
+  });
+});
 
-    // Validation - check if categories array has more than 3 items
-    if (categories.length > 3) {
-      return res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json({ message: RESPONSE_MESSAGES.POSTS.MAX_CATEGORIES });
-    }
+export const getFeaturedPostsHandler = asyncHandler(async (req, res) => {
+  const featuredPosts = await getFeaturedPostsService();
+  ApiResponse.success(res, { data: featuredPosts });
+});
 
-    const savedPost = await createPostService({
-      title,
-      authorName,
-      imageLink,
-      description,
-      categories,
-      isFeaturedPost,
-      tags: req.body.tags,
-      status: req.body.status,
-      scheduledFor: req.body.scheduledFor,
-    });
+export const getPostByCategoryHandler = asyncHandler(async (req, res) => {
+  const categoryPosts = await getPostByCategoryService(req.params.category);
+  ApiResponse.success(res, { data: categoryPosts });
+});
 
-    res.status(HTTP_STATUS.OK).json(savedPost);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const getLatestPostsHandler = asyncHandler(async (req, res) => {
+  const latestPosts = await getLatestPostsService();
+  ApiResponse.success(res, { data: latestPosts });
+});
 
-export const getAllPostsHandler = async (req, res) => {
-  try {
-    const result = await getAllPostsService(req.query);
-    if (Object.keys(req.query).length > 0) {
-      return res.status(HTTP_STATUS.OK).json({ success: true, data: result.items, meta: result });
-    }
-    return res.status(HTTP_STATUS.OK).json(result.items);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const getPostByIdHandler = asyncHandler(async (req, res) => {
+  const post = await getPostByIdService(req.params.id, { countView: true });
+  ApiResponse.success(res, { data: post });
+});
 
-export const getFeaturedPostsHandler = async (req, res) => {
-  try {
-    const featuredPosts = await getFeaturedPostsService();
-    res.status(HTTP_STATUS.OK).json(featuredPosts);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const updatePostHandler = asyncHandler(async (req, res) => {
+  const updatedPost = await updatePostService(req.params.id, req.body);
+  ApiResponse.success(res, { data: updatedPost, message: 'Post updated' });
+});
 
-export const getPostByCategoryHandler = async (req, res) => {
-  const category = req.params.category;
-  try {
-    const categoryPosts = await getPostByCategoryService(category);
-    res.status(HTTP_STATUS.OK).json(categoryPosts);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const deletePostByIdHandler = asyncHandler(async (req, res) => {
+  await deletePostService(req.params.id);
+  ApiResponse.success(res, { message: 'Post deleted' });
+});
 
-export const getLatestPostsHandler = async (req, res) => {
-  try {
-    const latestPosts = await getLatestPostsService();
-    res.status(HTTP_STATUS.OK).json(latestPosts);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const getTrendingPostsHandler = asyncHandler(async (req, res) => {
+  const posts = await getTrendingPostsService();
+  ApiResponse.success(res, { data: posts });
+});
 
-export const getPostByIdHandler = async (req, res) => {
-  try {
-    const post = await getPostByIdService(req.params.id, { countView: true });
-    res.status(HTTP_STATUS.OK).json(post);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const getRelatedPostsHandler = asyncHandler(async (req, res) => {
+  const posts = await getRelatedPostsService(req.params.id);
+  ApiResponse.success(res, { data: posts });
+});
 
-export const updatePostHandler = async (req, res) => {
-  try {
-    const updatedPost = await updatePostService(req.params.id, req.body);
-    res.status(HTTP_STATUS.OK).json(updatedPost);
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const addReactionHandler = asyncHandler(async (req, res) => {
+  const post = await addReactionService(req.params.id, req.body.reaction);
+  ApiResponse.success(res, { data: post, message: 'Reaction recorded' });
+});
 
-export const deletePostByIdHandler = async (req, res) => {
-  try {
-    await deletePostService(req.params.id);
-    res.status(HTTP_STATUS.OK).json({ message: RESPONSE_MESSAGES.POSTS.DELETED });
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const addCommentHandler = asyncHandler(async (req, res) => {
+  const comment = await addCommentService(req.params.id, req.body);
+  ApiResponse.created(res, { data: comment, message: 'Comment added' });
+});
 
-export const getTrendingPostsHandler = async (req, res) => {
-  try {
-    res.status(HTTP_STATUS.OK).json(await getTrendingPostsService());
-  } catch (err) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const addReplyHandler = asyncHandler(async (req, res) => {
+  const reply = await addReplyService(req.params.id, req.params.commentId, req.body);
+  ApiResponse.created(res, { data: reply, message: 'Reply added' });
+});
 
-export const getRelatedPostsHandler = async (req, res) => {
-  try {
-    res.status(HTTP_STATUS.OK).json(await getRelatedPostsService(req.params.id));
-  } catch (err) {
-    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
-
-export const addReactionHandler = async (req, res) => {
-  try {
-    res.status(HTTP_STATUS.OK).json(await addReactionService(req.params.id, req.body.reaction));
-  } catch (err) {
-    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
-
-export const addCommentHandler = async (req, res) => {
-  try {
-    res.status(HTTP_STATUS.OK).json(await addCommentService(req.params.id, req.body));
-  } catch (err) {
-    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
-
-export const addReplyHandler = async (req, res) => {
-  try {
-    res.status(HTTP_STATUS.OK).json(await addReplyService(req.params.id, req.params.commentId, req.body));
-  } catch (err) {
-    res.status(err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: err.message });
-  }
-};
+export const getPostsByTagHandler = asyncHandler(async (req, res) => {
+  const posts = await getPostsByTagService(req.params.tag);
+  ApiResponse.success(res, { data: posts });
+});

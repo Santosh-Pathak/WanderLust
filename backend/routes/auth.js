@@ -1,5 +1,4 @@
 import { Router } from 'express';
-const router = Router();
 import {
   signUpWithEmail,
   signInWithEmail,
@@ -13,22 +12,23 @@ import {
   refreshTokenHandler,
 } from '../controllers/auth-controller.js';
 import { authenticate } from '../middleware/auth.js';
+import { authRateLimit } from '../middleware/rate-limit.js';
 
-//GOOGLE STRATEGY
+const router = Router();
+
+router.use(authRateLimit);
+
 router.get('/google', openGoogleAuthWindow);
 router.get('/google/signup/callback', signUpWithGoogle);
 router.get('/google/signin/callback', signInWithGoogle);
 
-//GITHUB STRATEGY
 router.get('/github', openGithubAuthWindow);
 router.get('/github/signup/callback', signUpWithGithub);
 router.get('/github/signin/callback', signInWithGithub);
 
-//REGULAR EMAIL PASSWORD STRATEGY
 router.post('/email-password/signup', signUpWithEmail);
 router.post('/email-password/signin', signInWithEmail);
 
-//SIGN OUT
 router.post('/refresh', refreshTokenHandler);
 router.post('/signout', authenticate, signOutUser);
 

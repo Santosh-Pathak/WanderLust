@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDown, BookOpen, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import Header from '@/layouts/header-layout';
 import PostCard from '@/components/post-card';
 import FeaturedPostCard from '@/components/featured-post-card';
@@ -9,6 +10,16 @@ import CategoryPill from '@/components/category-pill';
 import { PostCardSkeleton } from '@/components/skeletons/post-card-skeleton';
 import { categories } from '@/utils/category-colors';
 import { useDiscoveryPosts, usePostList } from '@/hooks/use-posts';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
 function HomePage() {
   const [search, setSearch] = useState('');
@@ -34,18 +45,27 @@ function HomePage() {
     <div className="w-full cursor-default bg-light text-light-primary dark:bg-dark dark:text-dark-primary">
       <Header />
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-12 px-4 py-8 md:px-8 lg:px-12">
-        <section className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-          <div>
+        <motion.section
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+          className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]"
+        >
+          <motion.div variants={itemVariants}>
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
               <Sparkles className="h-4 w-4" /> Featured Articles
             </div>
             <div className="flex flex-col gap-5">
               {(discovery.featured.length ? discovery.featured : posts.data)
                 .slice(0, 3)
-                .map((post) => <FeaturedPostCard key={post._id} post={post} />)}
+                .map((post) => (
+                  <motion.div key={post._id} variants={itemVariants}>
+                    <FeaturedPostCard post={post} />
+                  </motion.div>
+                ))}
             </div>
-          </div>
-          <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-dark-card">
+          </motion.div>
+          <motion.aside variants={itemVariants} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-dark-card">
             <div className="mb-4 flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-rose-600 dark:text-rose-300" />
               <h2 className="text-lg font-semibold">Trending Now</h2>
@@ -53,10 +73,14 @@ function HomePage() {
             <div className="flex flex-col gap-3">
               {(discovery.trending.length ? discovery.trending : discovery.latest)
                 .slice(0, 5)
-                .map((post) => <LatestPostCard key={post._id} post={post} />)}
+                .map((post) => (
+                  <motion.div key={post._id} variants={itemVariants}>
+                    <LatestPostCard post={post} />
+                  </motion.div>
+                ))}
             </div>
-          </aside>
-        </section>
+          </motion.aside>
+        </motion.section>
 
         <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-dark-card md:grid-cols-[1fr_auto_auto]">
           <label className="relative">
@@ -119,18 +143,25 @@ function HomePage() {
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               Could not load posts: {error}
-            </div>
+            </motion.div>
           )}
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          >
             {loading
-              ? Array(8)
-                  .fill(0)
-                  .map((_, index) => <PostCardSkeleton key={index} />)
-              : posts.data.map((post) => <PostCard key={post._id} post={post} />)}
-          </div>
+              ? Array(8).fill(0).map((_, index) => <PostCardSkeleton key={index} />)
+              : posts.data.map((post) => (
+                  <motion.div key={post._id} variants={itemVariants}>
+                    <PostCard post={post} />
+                  </motion.div>
+                ))}
+          </motion.div>
 
           {!loading && posts.data.length === 0 && (
             <div className="rounded-lg border border-dashed border-slate-300 p-10 text-center dark:border-slate-700">

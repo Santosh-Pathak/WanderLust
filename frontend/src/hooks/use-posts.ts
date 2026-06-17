@@ -28,6 +28,7 @@ export function usePostList(params?: Record<string, string | number | undefined>
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(params)]);
 
   return state;

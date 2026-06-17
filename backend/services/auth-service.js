@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import axios from 'axios';
 import { env } from '../config/env.js';
 import { createUser, findUserByEmail, findUserById, updateUserById } from '../repositories/user-repository.js';
 import { ApiError } from '../middleware/error-handler.js';
@@ -42,7 +43,7 @@ const issueTokens = async (user) => {
 
 export const registerWithEmail = async ({ name, email, password }) => {
   const existingUser = await findUserByEmail(email);
-  if (existingUser) throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'User already exists.');
+  if (existingUser) throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'User already exists');
 
   const hashedPassword = await hash(password, 10);
   const user = await createUser({ name, email, password: hashedPassword, role: 'user' });
@@ -89,4 +90,46 @@ export const refreshAccessToken = async (refreshToken) => {
 
 export const revokeRefreshToken = async (userId) => {
   if (userId) await updateUserById(userId, { refreshTokenHash: undefined });
+};
+
+export const exchangeGoogleCode = async (code) => {
+  const response = await axios.post(
+    env.gauthTokenUrl,
+    {
+      client_id: env.gauthClientId,
+      client_secret: env.gauthClientSecret,
+      code,
+      redirect_uri: env.redirectionUrl,
+      grant_type: 'authorization_code',
+    },
+    { headers: { Accept: 'application/json' } }
+  );
+  return response.data;
+};
+
+export const fetchGoogleUser = async (accessToken) => {
+  const response = await axios.get(env.gauthUserUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return response.data;
+};
+
+export const exchangeGithubCode = async (code) => {
+  const response = await axios.post(
+    env.githubTokenUrl,
+    {
+      client_id: env.githubClientId,
+      client_secret: env.githubClientSecret,
+      code,
+    },
+    { headers: { Accept: 'application/json' } }
+  );
+  return response.data;
+};
+
+export const fetchGithubUser = async (accessToken) => {
+  const response = await axios.get(env.githubUserUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return response.data;
 };

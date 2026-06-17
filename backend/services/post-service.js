@@ -9,6 +9,7 @@ import {
   listPostsByCategory,
   listRelatedPosts,
   listTrendingPosts,
+  listPostsByTag,
   updatePostById,
 } from '../repositories/post-repository.js';
 import {
@@ -56,10 +57,9 @@ export const getAllPostsService = async (query = {}) => {
     category: query.category,
     tag: query.tag,
     search: query.search,
-    status: query.status || 'all',
+    status: query.status || 'published',
     sort: query.sort || '-timeOfPost',
   });
-  await storeDataInCache(REDIS_KEYS.ALL_POSTS, result.items);
   return result;
 };
 
@@ -87,6 +87,8 @@ export const getPostByCategoryService = async (category) => {
   }
   return listPostsByCategory(category);
 };
+
+export const getPostsByTagService = async (tag) => listPostsByTag(tag);
 
 export const getPostByIdService = async (id, { countView = false } = {}) => {
   const post = countView ? await incrementViews(id) : await findPostById(id);

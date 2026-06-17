@@ -1,4 +1,4 @@
-function hero() {
+export default function Hero() {
   return (
     <div className="mb-8 flex max-w-3xl flex-1 flex-col justify-end text-slate-50">
       <h1 className="cursor-text text-xl font-bold md:text-4xl">Journey Beyond Horizons</h1>
@@ -10,5 +10,3 @@ function hero() {
     </div>
   );
 }
-
-export default hero;

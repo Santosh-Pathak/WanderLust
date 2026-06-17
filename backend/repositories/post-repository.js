@@ -37,6 +37,9 @@ export const listLatestPosts = () =>
 export const listPostsByCategory = (category) =>
   Post.find({ categories: category, status: { $in: publicStatuses } }).sort({ timeOfPost: -1 }).lean();
 
+export const listPostsByTag = (tag) =>
+  Post.find({ tags: tag.toLowerCase(), status: { $in: publicStatuses } }).sort({ timeOfPost: -1 }).lean();
+
 export const findPostById = (id) => Post.findById(id);
 
 export const updatePostById = (id, payload) =>

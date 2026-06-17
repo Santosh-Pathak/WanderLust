@@ -1,13 +1,9 @@
-const dangerousKeys = ['$where', '$regex'];
+import xss from 'xss';
 
-const cleanString = (value) =>
-  value
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/javascript:/gi, '')
-    .trim();
+const dangerousKeys = ['$where', '$regex', '$ne', '$gt', '$lt', '$gte', '$lte', '$in', '$nin', '$or', '$and', '$exists'];
 
 const sanitizeValue = (value) => {
-  if (typeof value === 'string') return cleanString(value);
+  if (typeof value === 'string') return xss(value.trim());
   if (Array.isArray(value)) return value.map(sanitizeValue);
   if (value && typeof value === 'object') {
     return Object.entries(value).reduce((safe, [key, nestedValue]) => {
@@ -27,13 +23,6 @@ export const sanitizeRequest = (req, res, next) => {
 };
 
 export const securityHeaders = (req, res, next) => {
-  res.setHeader('x-content-type-options', 'nosniff');
-  res.setHeader('x-frame-options', 'DENY');
-  res.setHeader('referrer-policy', 'no-referrer');
-  res.setHeader('permissions-policy', 'camera=(), microphone=(), geolocation=()');
-  res.setHeader(
-    'content-security-policy',
-    "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
-  );
+  res.setHeader('x-request-id', req.requestId);
   next();
 };

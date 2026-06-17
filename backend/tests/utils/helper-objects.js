@@ -1,4 +1,4 @@
-import { validCategories } from '../../utils/constants';
+import { validCategories } from '../../utils/constants.js';
 
 export const res = {
   json: jest.fn(),
@@ -21,5 +21,21 @@ export const createRequestObject = (options = {}) => {
   return {
     body: options.body || {},
     params: options.params || {},
+    query: options.query || {},
+    get: () => undefined,
+    cookies: {},
+    user: options.user || { _id: 'test-user-id', role: 'user', name: 'Test User' },
+    ...options,
   };
 };
+
+export const createUserObject = (options = {}) => ({
+  _id: options._id || 'user-1',
+  name: options.name || 'Test User',
+  email: options.email || 'test@example.com',
+  role: options.role || 'user',
+  avatar: options.avatar,
+  bookmarks: [],
+  readingHistory: [],
+  ...options,
+});

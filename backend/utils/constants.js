@@ -7,8 +7,11 @@ export const validCategories = [
   'Landmarks',
   'Mountains',
 ];
+
 export const HTTP_STATUS = {
   OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
@@ -16,6 +19,7 @@ export const HTTP_STATUS = {
   TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,
 };
+
 export const RESPONSE_MESSAGES = {
   COMMON: {
     INTERNAL_SERVER_ERROR: 'Internal Server Error',
@@ -33,10 +37,11 @@ export const RESPONSE_MESSAGES = {
     SIGNED_UP: 'New user created',
     SIGNED_IN: 'Successfully signed in',
     SIGNED_OUT: 'Successfully signed out',
-    EMAIL_ALREADY_IN_USE: 'Email have been already used.',
-    USER_NOT_EXISTS: "User don't exist",
+    EMAIL_ALREADY_IN_USE: 'Email has already been used.',
+    USER_NOT_EXISTS: "User doesn't exist",
     AUTH_CODE_NOT_FOUND: 'Something went wrong',
     INVALID_PASSWORD: 'Invalid password.',
+    CODE_NOT_FOUND: 'Authorization code not found',
   },
 };
 

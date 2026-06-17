@@ -1,3 +1,4 @@
+import { logger } from '../config/logger.js';
 import { HTTP_STATUS, RESPONSE_MESSAGES } from '../utils/constants.js';
 
 export class ApiError extends Error {
@@ -32,7 +33,7 @@ export const errorHandler = (error, req, res, next) => {
       : error.message;
 
   if (statusCode === HTTP_STATUS.INTERNAL_SERVER_ERROR) {
-    console.error(`[${req.requestId}]`, error);
+    logger.error(`[${req.requestId}] ${error.message}`, { stack: error.stack, url: req.originalUrl, method: req.method });
   }
 
   res.status(statusCode).json({
