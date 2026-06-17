@@ -10,8 +10,8 @@ COPY . .
 # packages install
 RUN npm i
 
-# tests
-RUN npm run test
+# tests (unit only — integration tests need a running database)
+RUN npm run test:unit
 
 # Stage 2
 FROM node:21-slim
