@@ -1,0 +1,17 @@
+# Kustomize entry point — ArgoCD syncs this directory
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: wanderlust
+
+resources:
+  - namespace.yaml
+  - persistentVolumeClaim.yaml
+  - mongodb.yaml
+  - redis.yaml
+  - backend.yaml
+  - frontend.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: wanderlust
+  app.kubernetes.io/managed-by: argocd

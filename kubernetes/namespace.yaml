@@ -1,0 +1,8 @@
+# Wanderlust application namespace — all MERN stack workloads run here
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wanderlust
+  labels:
+    app.kubernetes.io/part-of: wanderlust
+    app.kubernetes.io/managed-by: argocd

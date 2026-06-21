@@ -1,0 +1,61 @@
+# Backend API — Express/Node.js (image tag updated by Wanderlust-CD Jenkins pipeline)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: wanderlust
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # CI/CD replaces tag after v1.0.0 — keep image name prefix unchanged for sed in GitOps/Jenkinsfile
+          image: YOUR_DOCKERHUB_USER/wanderlust-backend-beta:v1.0.0
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+# NodePort 31100 — access at http://<eks-worker-public-ip>:31100
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: wanderlust
+  labels:
+    app: backend
+spec:
+  type: NodePort
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 31100
+      protocol: TCP
