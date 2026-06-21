@@ -1,0 +1,172 @@
+# kube-prometheus-stack values for Wanderlust on EKS
+# Chart: prometheus-community/kube-prometheus-stack
+# Docs:  https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
+#
+# Install:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   kubectl create namespace prometheus
+#   helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+#     -n prometheus -f helm/monitoring/values.yaml
+
+# ---------------------------------------------------------------------------
+# Global settings
+# ---------------------------------------------------------------------------
+fullnameOverride: monitoring
+
+# Default recording/alerting rules (Kubernetes, node, workload health)
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: true
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserverAvailability: true
+    kubeApiserverSlos: true
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+# ---------------------------------------------------------------------------
+# Prometheus — metrics storage and querying
+# Exposed via NodePort for demo access (open port in EKS worker security group)
+# ---------------------------------------------------------------------------
+prometheus:
+  enabled: true
+
+  service:
+    type: NodePort
+    nodePort: 32090
+
+  prometheusSpec:
+    # Retain metrics for one week on demo clusters
+    retention: 7d
+    retentionSize: 8GB
+
+    # Discover ServiceMonitors/PodMonitors in all namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+    # Optional: add pod annotations on app Deployments to scrape custom metrics:
+    #   prometheus.io/scrape: "true"
+    #   prometheus.io/port: "8080"
+    #   prometheus.io/path: "/metrics"
+
+# ---------------------------------------------------------------------------
+# Grafana — dashboards and visualization
+# Default login: admin / (see README for password retrieval command)
+# ---------------------------------------------------------------------------
+grafana:
+  enabled: true
+
+  # Leave empty to auto-generate a random admin password in a Kubernetes Secret
+  adminPassword: ""
+
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: utc
+
+  service:
+    type: NodePort
+    nodePort: 32000
+
+  # Pre-built Kubernetes / cluster dashboards from kube-prometheus-stack
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+
+  persistence:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s/"
+    analytics:
+      check_for_updates: false
+
+# ---------------------------------------------------------------------------
+# Alertmanager — alert routing (disabled notifications by default for demo)
+# ---------------------------------------------------------------------------
+alertmanager:
+  enabled: true
+
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# Cluster component exporters — required for EKS / node / workload dashboards
+# ---------------------------------------------------------------------------
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+# Prometheus Operator manages CRDs (ServiceMonitor, PodMonitor, PrometheusRule)
+prometheusOperator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# Control-plane components (managed by AWS on EKS — keep scraping disabled)
+# ---------------------------------------------------------------------------
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: true
+
+coreDns:
+  enabled: true
