@@ -241,7 +241,7 @@ kubectl apply -f gitops/argocd-application.yaml
 Replace `YOUR_DOCKERHUB_USER` in:
 
 - `Jenkinsfile`
-- `GitOps/Jenkinsfile`
+- `gitops/Jenkinsfile`
 - `kubernetes/backend.yaml`
 - `kubernetes/frontend.yaml`
 
@@ -263,7 +263,7 @@ Commit and push to GitHub.
 | Job | Script path |
 |-----|-------------|
 | Wanderlust-CI | `Jenkinsfile` |
-| Wanderlust-CD | `GitOps/Jenkinsfile` |
+| Wanderlust-CD | `gitops/Jenkinsfile` |
 
 ---
 

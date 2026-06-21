@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# Updates backend/.env.docker with the EKS worker public IP for NodePort access.
+# Updates backend/.env.docker with the EKS worker public IP for CORS (CLIENT_ORIGIN).
 # Run from Jenkins CI on the worker node (requires AWS CLI + IAM permissions).
 #
 # BEFORE FIRST RUN:
@@ -35,13 +35,13 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-expected_frontend_url="FRONTEND_URL=\"http://${ipv4_address}:31000\""
+expected_client_origin="CLIENT_ORIGIN=\"http://${ipv4_address}:31000\""
 
-if grep -qF "${expected_frontend_url}" "${ENV_FILE}"; then
+if grep -qF "${expected_client_origin}" "${ENV_FILE}"; then
   echo -e "${YELLOW}${ENV_FILE} already points at ${ipv4_address}${NC}"
   exit 0
 fi
 
-echo -e "${YELLOW}Updating ${ENV_FILE} with NodePort frontend URL${NC}"
-sed -i -E "s|^FRONTEND_URL=.*|${expected_frontend_url}|g" "${ENV_FILE}"
+echo -e "${YELLOW}Updating ${ENV_FILE} with NodePort frontend origin (CORS)${NC}"
+sed -i -E "s|^CLIENT_ORIGIN=.*|${expected_client_origin}|g" "${ENV_FILE}"
 echo -e "${GREEN}Backend env configured.${NC}"
