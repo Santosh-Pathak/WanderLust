@@ -1,0 +1,104 @@
+/**
+ * Wanderlust CD Pipeline (Wanderlust-CD) — GitOps manifest updater
+ *
+ * Shared library: https://github.com/Santosh-Pathak/jenkins-shared-libraries
+ * Uses clone() and clean_ws() from the external library.
+ * Manifest updates stay in this Jenkinsfile (Wanderlust-specific paths/tags).
+ *
+ * Jenkins agent label: Node
+ * Credential: Github-cred (PAT with repo write access)
+ */
+@Library('Shared') _
+
+pipeline {
+    agent { label 'Node' }
+
+    environment {
+        DOCKERHUB_USER = 'santoshpathak456'
+        GIT_REPO = 'https://github.com/Santosh-Pathak/WanderLust.git'
+        GIT_BRANCH = 'main'
+    }
+
+    parameters {
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: '', description: 'Tag pushed by Wanderlust-CI')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: '', description: 'Tag pushed by Wanderlust-CI')
+    }
+
+    stages {
+        stage('Workspace cleanup') {
+            steps {
+                script {
+                    clean_ws()
+                }
+            }
+        }
+
+        stage('Git: Code Checkout') {
+            steps {
+                script {
+                    clone("${env.GIT_REPO}", "${env.GIT_BRANCH}")
+                }
+            }
+        }
+
+        stage('Verify: Docker Image Tags') {
+            steps {
+                script {
+                    if (!params.FRONTEND_DOCKER_TAG?.trim() || !params.BACKEND_DOCKER_TAG?.trim()) {
+                        error 'FRONTEND_DOCKER_TAG and BACKEND_DOCKER_TAG are required.'
+                    }
+                    echo "Updating manifests → frontend:${params.FRONTEND_DOCKER_TAG}, backend:${params.BACKEND_DOCKER_TAG}"
+                }
+            }
+        }
+
+        stage('Update: Kubernetes manifests') {
+            steps {
+                dir('kubernetes') {
+                    sh """
+                        sed -i 's|${env.DOCKERHUB_USER}/wanderlust-backend-beta:.*|${env.DOCKERHUB_USER}/wanderlust-backend-beta:${params.BACKEND_DOCKER_TAG}|g' backend.yaml
+                        sed -i 's|${env.DOCKERHUB_USER}/wanderlust-frontend-beta:.*|${env.DOCKERHUB_USER}/wanderlust-frontend-beta:${params.FRONTEND_DOCKER_TAG}|g' frontend.yaml
+                        echo '--- backend.yaml image ---'
+                        grep 'image:' backend.yaml
+                        echo '--- frontend.yaml image ---'
+                        grep 'image:' frontend.yaml
+                    """
+                }
+            }
+        }
+
+        stage('Git: Commit and push (GitOps trigger)') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'Github-cred', gitToolName: 'Default')]) {
+                    sh """
+                        git config user.email "jenkins@wanderlust.local"
+                        git config user.name "Jenkins CD"
+                        git status
+                        git add kubernetes/backend.yaml kubernetes/frontend.yaml
+                        git diff --cached --quiet && echo 'No manifest changes to commit' && exit 0
+                        git commit -m "chore(gitops): bump images backend:${params.BACKEND_DOCKER_TAG} frontend:${params.FRONTEND_DOCKER_TAG}"
+                        git push origin HEAD:${env.GIT_BRANCH}
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            emailext(
+                attachLog: true,
+                subject: "Wanderlust CD — ${currentBuild.currentResult}",
+                body: """
+                    Job: ${env.JOB_NAME}
+                    Build: ${env.BUILD_NUMBER}
+                    Backend tag: ${params.BACKEND_DOCKER_TAG}
+                    Frontend tag: ${params.FRONTEND_DOCKER_TAG}
+                    URL: ${env.BUILD_URL}
+                """,
+                to: '${DEFAULT_RECIPIENTS}',
+                mimeType: 'text/plain'
+            )
+        }
+    }
+}
