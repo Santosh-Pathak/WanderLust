@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and adjust for your AWS account/region
+# cp terraform.tfvars.example terraform.tfvars
+
+aws_region             = "us-east-2"
+cluster_name           = "wanderlust"
+cluster_version        = "1.30"
+eks_node_instance_type = "t2.large"
+eks_node_desired_size  = 2
+eks_node_min_size      = 2
+eks_node_max_size      = 2
+eks_node_disk_size     = 29
+instance_type          = "t2.large"
+ec2_root_volume_gb     = 29
+
+# Look up a current Ubuntu 22.04 AMI for your region:
+# aws ec2 describe-images --owners 099720109477 --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*" --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text
+ami_id = "ami-085f9c64a9b75eed5"
