@@ -1,0 +1,15 @@
+# Persistent storage for MongoDB data on EKS (uses default gp2/gp3 storage class)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-pvc
+  namespace: wanderlust
+  labels:
+    app: mongo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # Leave storageClassName empty to use the EKS default (gp2/gp3)

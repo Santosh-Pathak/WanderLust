@@ -1,0 +1,27 @@
+# ArgoCD Application — watches kubernetes/ in Git and syncs to EKS (GitOps CD)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wanderlust
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Santosh-Pathak/WanderLust.git
+    targetRevision: main
+    path: kubernetes
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wanderlust
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

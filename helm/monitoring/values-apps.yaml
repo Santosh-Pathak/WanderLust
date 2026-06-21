@@ -1,0 +1,14 @@
+# Optional ServiceMonitor overlay — use only when backend exposes /metrics on port name "http"
+additionalServiceMonitors:
+  - name: wanderlust-backend
+    namespaceSelector:
+      matchNames:
+        - wanderlust
+    selector:
+      matchLabels:
+        app: backend
+    endpoints:
+      - port: http
+        path: /metrics
+        interval: 30s
+        scrapeTimeout: 10s

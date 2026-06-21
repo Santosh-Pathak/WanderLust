@@ -19,6 +19,7 @@ coverage/
 # Environment files
 .env
 .env.*
+!.env.docker
 
 # Editor / IDE files
 .vscode/*

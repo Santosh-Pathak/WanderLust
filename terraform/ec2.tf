@@ -1,122 +1,71 @@
-resource "aws_key_pair" "deployer" {
-  key_name   = "terra-automate-key"
-  public_key = file("D:/Wanderlust/terra-key.pub")
-}
+# ---------------------------------------------------------------------------
+# Jenkins Master EC2 — hosts Jenkins, SonarQube, kubectl, eksctl, ArgoCD CLI
+# Jenkins Worker EC2 — Jenkins agent with Docker and Trivy for CI builds
+# ---------------------------------------------------------------------------
 
-resource "aws_default_vpc" "default" {}
-
-resource "aws_security_group" "allow_user_to_connect" {
-  name        = "allow TLS"
-  description = "Allow user to connect"
-  vpc_id      = aws_default_vpc.default.id
-
-  # SSH
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTP
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # SMTP
-  ingress {
-    description = "SMTP"
-    from_port   = 25
-    to_port     = 25
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTPS
-  ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # SMTPS
-  ingress {
-    description = "SMTPS"
-    from_port   = 465
-    to_port     = 465
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Redis
-  ingress {
-    description = "Redis"
-    from_port   = 6379
-    to_port     = 6379
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Kubernetes API Server
-  ingress {
-    description = "Kubernetes API"
-    from_port   = 6443
-    to_port     = 6443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Custom TCP Range (App/Dev ports)
-  ingress {
-    description = "Custom TCP 3000-10000"
-    from_port   = 3000
-    to_port     = 10000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # NodePort Range (Kubernetes NodePorts)
-  ingress {
-    description = "Kubernetes NodePort range"
-    from_port   = 30000
-    to_port     = 32767
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Allow all outbound traffic
-  egress {
-    description = "Allow all outgoing traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "mysecurity"
-  }
-}
-
-resource "aws_instance" "testinstance" {
-  ami             = var.ami_id
-  instance_type   = var.instance_type
-  key_name        = aws_key_pair.deployer.key_name
-  security_groups = [aws_security_group.allow_user_to_connect.name]
-
-  tags = {
-    Name = "Automate"
-  }
+resource "aws_instance" "jenkins_master" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.deployer.key_name
+  vpc_security_group_ids = [aws_security_group.allow_user_to_connect.id]
 
   root_block_device {
-    volume_size = 30
+    volume_size = var.ec2_root_volume_gb
     volume_type = "gp3"
   }
+
+  tags = {
+    Name        = "${var.cluster_name}-jenkins-master"
+    Role        = "jenkins-master"
+    Environment = "wanderlust-mega-project"
+    ManagedBy   = "terraform"
+  }
+}
+
+resource "aws_instance" "jenkins_worker" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.deployer.key_name
+  vpc_security_group_ids = [aws_security_group.allow_user_to_connect.id]
+  iam_instance_profile   = aws_iam_instance_profile.jenkins_worker.name
+
+  root_block_device {
+    volume_size = var.ec2_root_volume_gb
+    volume_type = "gp3"
+  }
+
+  tags = {
+    Name        = "${var.cluster_name}-jenkins-worker"
+    Role        = "jenkins-worker"
+    Environment = "wanderlust-mega-project"
+    ManagedBy   = "terraform"
+  }
+}
+
+# Attach administrator IAM role to Jenkins worker (required for AWS CLI in pipeline)
+resource "aws_iam_role" "jenkins_worker" {
+  name = "${var.cluster_name}-jenkins-worker-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+
+  tags = {
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "jenkins_worker_admin" {
+  role       = aws_iam_role.jenkins_worker.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+resource "aws_iam_instance_profile" "jenkins_worker" {
+  name = "${var.cluster_name}-jenkins-worker-profile"
+  role = aws_iam_role.jenkins_worker.name
 }
